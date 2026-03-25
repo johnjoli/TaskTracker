@@ -1,0 +1,9 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/tasktracker
+    username: tasktracker
+    password: tasktracker
+    driver-class-name: org.postgresql.Driver
+  h2:
+    console:
+      enabled: false

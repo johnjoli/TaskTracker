@@ -4,7 +4,10 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tasktracker.auth.api.LoginRequest;
 import com.tasktracker.auth.api.RegisterRequest;
+import com.tasktracker.auth.api.UserRoleUpdateRequest;
+import com.tasktracker.auth.domain.Role;
 import com.tasktracker.auth.repository.UserRepository;
+import com.tasktracker.support.PostgresIntegrationTest;
 import com.tasktracker.task.domain.TaskPriority;
 import com.tasktracker.task.domain.TaskStatus;
 import com.tasktracker.task.repository.TaskRepository;
@@ -17,6 +20,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
+import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.time.LocalDateTime;
 
@@ -24,14 +28,14 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-class TaskControllerTest {
+@Testcontainers(disabledWithoutDocker = true)
+class TaskControllerTest extends PostgresIntegrationTest {
 
     @Autowired
     private MockMvc mockMvc;
@@ -50,13 +54,14 @@ class TaskControllerTest {
         taskRepository.deleteAll();
         userRepository.findByUsername("alice").ifPresent(userRepository::delete);
         userRepository.findByUsername("bob").ifPresent(userRepository::delete);
+        userRepository.findByUsername("weak-user").ifPresent(userRepository::delete);
     }
 
     @Test
     void shouldRegisterLoginAndReadCurrentUser() throws Exception {
-        String token = register("alice", "password123");
+        String token = register("alice", "Password123!");
 
-        mockMvc.perform(get("/api/auth/me")
+        mockMvc.perform(get("/api/users/me")
                         .header(HttpHeaders.AUTHORIZATION, bearer(token)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.username").value("alice"))
@@ -64,7 +69,7 @@ class TaskControllerTest {
 
         mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(new LoginRequest("alice", "password123"))))
+                        .content(objectMapper.writeValueAsString(new LoginRequest("alice", "Password123!"))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.token").isString())
                 .andExpect(jsonPath("$.role").value("USER"));
@@ -72,8 +77,8 @@ class TaskControllerTest {
 
     @Test
     void shouldCreateFilterAndPatchTask() throws Exception {
-        String aliceToken = register("alice", "password123");
-        register("bob", "password123");
+        String aliceToken = register("alice", "Password123!");
+        register("bob", "Password123!");
         String adminToken = login("admin", "admin12345");
 
         TaskRequest request = new TaskRequest(
@@ -129,8 +134,8 @@ class TaskControllerTest {
 
     @Test
     void shouldRejectUnauthorizedAndForbiddenOperations() throws Exception {
-        String aliceToken = register("alice", "password123");
-        String bobToken = register("bob", "password123");
+        String aliceToken = register("alice", "Password123!");
+        String bobToken = register("bob", "Password123!");
 
         TaskRequest request = new TaskRequest(
                 "Owner task",
@@ -192,7 +197,7 @@ class TaskControllerTest {
 
     @Test
     void shouldAllowAdminToDeleteAnyTask() throws Exception {
-        String aliceToken = register("alice", "password123");
+        String aliceToken = register("alice", "Password123!");
         String adminToken = login("admin", "admin12345");
 
         TaskRequest request = new TaskRequest(
@@ -218,6 +223,88 @@ class TaskControllerTest {
         mockMvc.perform(delete("/api/tasks/{id}", taskId)
                         .header(HttpHeaders.AUTHORIZATION, bearer(adminToken)))
                 .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void shouldValidateStrongPasswordAndManageUsers() throws Exception {
+        mockMvc.perform(post("/api/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new RegisterRequest("weak-user", "weakpass"))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Validation failed"));
+
+        String aliceToken = register("alice", "Password123!");
+        String adminToken = login("admin", "admin12345");
+        register("bob", "Password123!");
+        Long bobId = findUserIdByUsername("bob");
+
+        mockMvc.perform(get("/api/users")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(aliceToken))
+                        .param("q", "bo"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].username").value("bob"));
+
+        mockMvc.perform(get("/api/users/{id}", bobId)
+                        .header(HttpHeaders.AUTHORIZATION, bearer(aliceToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.username").value("bob"))
+                .andExpect(jsonPath("$.role").value("USER"));
+
+        mockMvc.perform(patch("/api/users/{id}/role", bobId)
+                        .header(HttpHeaders.AUTHORIZATION, bearer(adminToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new UserRoleUpdateRequest(Role.ADMIN))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.role").value("ADMIN"));
+
+        mockMvc.perform(patch("/api/users/{id}/role", bobId)
+                        .header(HttpHeaders.AUTHORIZATION, bearer(aliceToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new UserRoleUpdateRequest(Role.USER))))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void shouldFilterTasksByDueDateFrom() throws Exception {
+        String aliceToken = register("alice", "Password123");
+
+        TaskRequest first = new TaskRequest(
+                "Old task",
+                "Should be filtered out",
+                TaskStatus.TODO,
+                TaskPriority.MEDIUM,
+                LocalDateTime.of(2025, 3, 10, 10, 0),
+                "alice"
+        );
+
+        TaskRequest second = new TaskRequest(
+                "New task",
+                "Should remain in result",
+                TaskStatus.TODO,
+                TaskPriority.HIGH,
+                LocalDateTime.of(2025, 3, 30, 10, 0),
+                "alice"
+        );
+
+        mockMvc.perform(post("/api/tasks")
+                .header(HttpHeaders.AUTHORIZATION, bearer(aliceToken))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(first)))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(post("/api/tasks")
+                .header(HttpHeaders.AUTHORIZATION, bearer(aliceToken))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(second)))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(get("/api/tasks")
+                .header(HttpHeaders.AUTHORIZATION, bearer(aliceToken))
+                .param("dueDateFrom", "2025-03-20T00:00:00"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content.length()").value(1))
+                .andExpect(jsonPath("$.content[0].title").value("New Task"));
+
     }
 
     private String register(String username, String password) throws Exception {
@@ -255,5 +342,11 @@ class TaskControllerTest {
 
     private String bearer(String token) {
         return "Bearer " + token;
+    }
+
+    private Long findUserIdByUsername(String username) {
+        return userRepository.findByUsername(username)
+                .orElseThrow()
+                .getId();
     }
 }

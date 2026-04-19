@@ -21,6 +21,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.LocalDateTime;
+
 @RestController
 @RequestMapping("/api/tasks")
 public class TaskController {
@@ -40,13 +42,15 @@ public class TaskController {
     @GetMapping
     public PageResponse<TaskResponse> findAll(
             @RequestParam(required = false) TaskStatus status,
+            @RequestParam(required = false) LocalDateTime dueDateFrom,
+            @RequestParam(required = false) LocalDateTime dueDateTo,
             @RequestParam(required = false) TaskPriority priority,
             @RequestParam(required = false, name = "q") String query,
             @RequestParam(required = false) String createdBy,
             @RequestParam(required = false) String assignee,
             @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable
     ) {
-        return taskService.findAll(status, priority, query, createdBy, assignee, pageable);
+        return taskService.findAll(status, priority, dueDateFrom, dueDateTo, query, createdBy, assignee, pageable);
     }
 
     @GetMapping("/{id}")

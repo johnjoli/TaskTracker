@@ -69,4 +69,8 @@ public class AppUser {
     public LocalDateTime getCreatedAt() {
         return createdAt;
     }
+
+    public void setId(long id) {
+        this.id = id;
+    }
 }

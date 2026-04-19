@@ -20,6 +20,8 @@
 mvn test
 ```
 
+Интеграционные тесты используют `Testcontainers + PostgreSQL`, поэтому для полного прогона нужен запущенный Docker.
+
 Запуск приложения на H2:
 
 ```bash
@@ -48,9 +50,23 @@ mvn spring-boot:run -Dspring-boot.run.profiles=local
 - `POST /api/auth/register`
 - `POST /api/auth/login`
 - `GET /api/auth/me`
+- `GET /api/users/me`
+- `GET /api/users?q=ali&role=USER&page=0&size=10`
+- `GET /api/users/{id}`
+- `PATCH /api/users/{id}/role`
 - `POST /api/tasks`
 - `GET /api/tasks?page=0&size=10&status=TODO&priority=HIGH&q=tracker&createdBy=alice&assignee=bob`
 - `GET /api/tasks/{id}`
 - `PUT /api/tasks/{id}`
 - `PATCH /api/tasks/{id}`
 - `DELETE /api/tasks/{id}`
+
+## Password Rules
+
+Пароль должен:
+
+- быть длиной от 8 до 100 символов
+- содержать минимум одну заглавную букву
+- содержать минимум одну строчную букву
+- содержать минимум одну цифру
+- содержать минимум один специальный символ

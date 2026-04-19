@@ -5,6 +5,8 @@ import com.tasktracker.task.domain.TaskPriority;
 import com.tasktracker.task.domain.TaskStatus;
 import org.springframework.data.jpa.domain.Specification;
 
+import java.time.LocalDateTime;
+
 public final class TaskSpecifications {
 
     private TaskSpecifications() {
@@ -32,6 +34,16 @@ public final class TaskSpecifications {
                     criteriaBuilder.like(criteriaBuilder.lower(root.get("description")), pattern)
             );
         };
+    }
+
+    public static Specification<Task> hasDueDateFrom(LocalDateTime dueDateFrom) {
+        return (root, query, cb) ->
+                dueDateFrom == null ? null : cb.greaterThanOrEqualTo(root.get("dueDate"), dueDateFrom);
+    }
+
+    public static Specification<Task> hasDueDateTo (LocalDateTime dueDateTo) {
+        return (root, query, cb) ->
+                dueDateTo == null ? null : cb.lessThanOrEqualTo(root.get("dueDate"), dueDateTo);
     }
 
     public static Specification<Task> hasCreatedBy(String username) {

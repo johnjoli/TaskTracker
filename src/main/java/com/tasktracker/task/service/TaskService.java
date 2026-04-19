@@ -19,6 +19,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+
 @Service
 @Transactional(readOnly = true)
 public class TaskService {
@@ -45,11 +47,14 @@ public class TaskService {
         task.setCreatedBy(currentUser);
         task.setAssignee(resolveAssignee(request.assigneeUsername(), currentUser));
         return TaskMapper.toResponse(taskRepository.save(task));
+
     }
 
     public PageResponse<TaskResponse> findAll(
             TaskStatus status,
             TaskPriority priority,
+            LocalDateTime dueDateFrom,
+            LocalDateTime dueDateTo,
             String query,
             String createdBy,
             String assignee,
@@ -57,6 +62,8 @@ public class TaskService {
     ) {
         Page<TaskResponse> page = taskRepository.findAll(
                         TaskSpecifications.hasStatus(status)
+                                .and(TaskSpecifications.hasDueDateFrom(dueDateFrom))
+                                .and(TaskSpecifications.hasDueDateTo(dueDateTo))
                                 .and(TaskSpecifications.hasPriority(priority))
                                 .and(TaskSpecifications.titleOrDescriptionContains(query))
                                 .and(TaskSpecifications.hasCreatedBy(createdBy))

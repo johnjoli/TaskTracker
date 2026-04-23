@@ -58,8 +58,14 @@ public class TaskService {
             String query,
             String createdBy,
             String assignee,
+            boolean onlyMine,
             Pageable pageable
     ) {
+        String effectiveAssignee = assignee;
+        if (onlyMine) {
+            effectiveAssignee = currentUserService.getCurrentUser().getUsername();
+        }
+
         Page<TaskResponse> page = taskRepository.findAll(
                         TaskSpecifications.hasStatus(status)
                                 .and(TaskSpecifications.hasDueDateFrom(dueDateFrom))
@@ -67,7 +73,7 @@ public class TaskService {
                                 .and(TaskSpecifications.hasPriority(priority))
                                 .and(TaskSpecifications.titleOrDescriptionContains(query))
                                 .and(TaskSpecifications.hasCreatedBy(createdBy))
-                                .and(TaskSpecifications.hasAssignee(assignee)),
+                                .and(TaskSpecifications.hasAssignee(effectiveAssignee)),
                         pageable
                 )
                 .map(TaskMapper::toResponse);
@@ -132,5 +138,13 @@ public class TaskService {
         if (!isCreator && !currentUserService.isAdmin()) {
             throw new AccessDeniedException("Only the creator or admin can modify this task");
         }
+    }
+
+    @Transactional
+    public TaskResponse complete(Long id) {
+        Task task = getTask(id);
+        verifyCanModify(task);
+        task.setStatus(TaskStatus.DONE);
+        return TaskMapper.toResponse(taskRepository.save(task));
     }
 }

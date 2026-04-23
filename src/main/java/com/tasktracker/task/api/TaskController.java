@@ -39,6 +39,11 @@ public class TaskController {
         return taskService.create(request);
     }
 
+    @PostMapping("/{id}/complete")
+    public TaskResponse complete(@PathVariable Long id) {
+        return taskService.complete(id);
+    }
+
     @GetMapping
     public PageResponse<TaskResponse> findAll(
             @RequestParam(required = false) TaskStatus status,
@@ -48,9 +53,32 @@ public class TaskController {
             @RequestParam(required = false, name = "q") String query,
             @RequestParam(required = false) String createdBy,
             @RequestParam(required = false) String assignee,
+            @RequestParam(required = false, defaultValue = "false") boolean onlyMine,
             @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable
     ) {
-        return taskService.findAll(status, priority, dueDateFrom, dueDateTo, query, createdBy, assignee, pageable);
+        return taskService.findAll(status, priority, dueDateFrom, dueDateTo, query, createdBy, assignee, onlyMine, pageable);
+    }
+
+    @GetMapping("/my")
+    public PageResponse<TaskResponse> findMyTasks(
+            @RequestParam(required = false) TaskStatus status,
+            @RequestParam(required = false) LocalDateTime dueDateFrom,
+            @RequestParam(required = false) LocalDateTime dueDateTo,
+            @RequestParam(required = false) TaskPriority priority,
+            @RequestParam(required = false, name = "q") String query,
+            @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable
+    ) {
+        return taskService.findAll(
+                status,
+                priority,
+                dueDateFrom,
+                dueDateTo,
+                query,
+                null,
+                null,
+                true,
+                pageable
+        );
     }
 
     @GetMapping("/{id}")

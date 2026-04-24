@@ -9,6 +9,7 @@ import com.tasktracker.task.domain.TaskStatus;
 import com.tasktracker.task.repository.TaskRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentMatchers;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -17,6 +18,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import com.tasktracker.auth.domain.AppUser;
 import com.tasktracker.task.api.TaskRequest;
 import com.tasktracker.task.api.TaskResponse;
+import org.springframework.data.jpa.domain.Specification;
 
 import static org.mockito.ArgumentMatchers.any;
 
@@ -170,7 +172,12 @@ public class TaskServiceTest {
         Page<Task> taskPage = new PageImpl<>(List.of());
 
         when(currentUserService.getCurrentUser()).thenReturn(currentUser);
-        when(taskRepository.findAll(any(), any(Pageable.class))).thenReturn(taskPage);
+        when(taskRepository.findAll(
+                ArgumentMatchers.<Specification<Task>>any(),
+                any(Pageable.class)
+        )).thenReturn(taskPage);
+
+
 
         PageResponse<TaskResponse> response = taskService.findAll(
                 null,
@@ -186,7 +193,35 @@ public class TaskServiceTest {
 
         assertEquals(0, response.content().size());
         verify(currentUserService).getCurrentUser();
-        verify(taskRepository).findAll(any(), any(Pageable.class));
+        verify(taskRepository).findAll(
+                ArgumentMatchers.<Specification<Task>>any(),
+                any(Pageable.class)
+        );
+
+    }
+
+    @Test
+    void shouldAssignTaskToCurrentUser() {
+        AppUser currentUser = new AppUser();
+        currentUser.setId(1L);
+        currentUser.setUsername("alice");
+
+        Task task = new Task();
+        task.setId(10L);
+        task.setTitle("Finish backend");
+        task.setDescription("Implement assign-to-me");
+        task.setStatus(TaskStatus.TODO);
+        task.setPriority(TaskPriority.HIGH);
+        task.setCreatedBy(currentUser);
+
+        when(taskRepository.findById(10L)).thenReturn(Optional.of(task));
+        when(currentUserService.getCurrentUser()).thenReturn(currentUser);
+        when(taskRepository.save(any(Task.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        TaskResponse response = taskService.assignToMe(10L);
+
+        assertEquals("alice", response.assignee());
+        assertEquals("Finish backend", response.title());
     }
 
 }

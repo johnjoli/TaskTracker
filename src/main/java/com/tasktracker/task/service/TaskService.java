@@ -86,6 +86,15 @@ public class TaskService {
     }
 
     @Transactional
+    public TaskResponse assignToMe(Long id) {
+        Task task = getTask(id);
+        verifyCanModify(task);
+        AppUser currentUser = currentUserService.getCurrentUser();
+        task.setAssignee(currentUser);
+        return TaskMapper.toResponse(taskRepository.save(task));
+    }
+
+    @Transactional
     public TaskResponse update(Long id, TaskRequest request) {
         Task task = getTask(id);
         verifyCanModify(task);

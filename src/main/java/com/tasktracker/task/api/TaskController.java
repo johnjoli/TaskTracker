@@ -44,6 +44,11 @@ public class TaskController {
         return taskService.complete(id);
     }
 
+    @PostMapping("/{id}/assign-to-me")
+    public TaskResponse assignToMe(@PathVariable Long id) {
+        return taskService.assignToMe(id);
+    }
+
     @GetMapping
     public PageResponse<TaskResponse> findAll(
             @RequestParam(required = false) TaskStatus status,

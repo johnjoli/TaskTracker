@@ -1,8 +1,8 @@
 package com.tasktracker.task.repository;
 
-import com.tasktracker.task.domain.Task;
-import com.tasktracker.task.domain.TaskPriority;
-import com.tasktracker.task.domain.TaskStatus;
+import com.tasktracker.task.entity.Task;
+import com.tasktracker.task.entity.TaskPriority;
+import com.tasktracker.task.entity.TaskStatus;
 import org.springframework.data.jpa.domain.Specification;
 
 import java.time.LocalDateTime;

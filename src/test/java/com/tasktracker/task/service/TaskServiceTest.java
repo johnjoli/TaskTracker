@@ -3,9 +3,13 @@ package com.tasktracker.task.service;
 import com.tasktracker.auth.repository.UserRepository;
 import com.tasktracker.auth.service.CurrentUserService;
 import com.tasktracker.common.api.PageResponse;
-import com.tasktracker.task.domain.Task;
-import com.tasktracker.task.domain.TaskPriority;
-import com.tasktracker.task.domain.TaskStatus;
+import com.tasktracker.task.api.TaskCommentRequest;
+import com.tasktracker.task.api.TaskCommentResponse;
+import com.tasktracker.task.entity.Task;
+import com.tasktracker.task.entity.TaskComment;
+import com.tasktracker.task.entity.TaskPriority;
+import com.tasktracker.task.entity.TaskStatus;
+import com.tasktracker.task.repository.TaskCommentRepository;
 import com.tasktracker.task.repository.TaskRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -14,12 +18,13 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import com.tasktracker.common.exception.ResourceNotFoundException;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+
 import com.tasktracker.auth.domain.AppUser;
 import com.tasktracker.task.api.TaskRequest;
 import com.tasktracker.task.api.TaskResponse;
 import org.springframework.data.jpa.domain.Specification;
 
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 
 
@@ -34,7 +39,6 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -46,6 +50,10 @@ public class TaskServiceTest {
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private TaskCommentRepository taskCommentRepository;
+
 
     @Mock
     private CurrentUserService currentUserService;
@@ -222,6 +230,98 @@ public class TaskServiceTest {
 
         assertEquals("alice", response.assignee());
         assertEquals("Finish backend", response.title());
+    }
+
+    @Test
+    void shouldUnassignTask() {
+        AppUser currentUser = new AppUser();
+        currentUser.setId(1L);
+        currentUser.setUsername("alice");
+
+        AppUser assignee = new AppUser();
+        assignee.setId(2L);
+        assignee.setUsername("bob");
+
+        Task task = new Task();
+        task.setId(10L);
+        task.setTitle("Finish backend");
+        task.setDescription("Implement unassign");
+        task.setStatus(TaskStatus.TODO);
+        task.setPriority(TaskPriority.HIGH);
+        task.setCreatedBy(currentUser);
+        task.setAssignee(assignee);
+
+        when(taskRepository.findById(10L)).thenReturn(Optional.of(task));
+        when(currentUserService.getCurrentUser()).thenReturn(currentUser);
+        when(taskRepository.save(any(Task.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        TaskResponse response = taskService.unassign(10L);
+
+        assertEquals("Finish backend", response.title());
+        assertNull(response.assignee());
+
+    }
+
+    @Test
+    void shouldAddCommentToTask() {
+        AppUser currentUser = new AppUser();
+        currentUser.setId(1L);
+        currentUser.setUsername("alice");
+
+        Task task = new Task();
+        task.setId(10L);
+        task.setTitle("Finish backend");
+
+        TaskCommentRequest request = new TaskCommentRequest("Need to clarify acceptance criteria");
+
+        when(taskRepository.findById(10L)).thenReturn(Optional.of(task));
+        when(currentUserService.getCurrentUser()).thenReturn(currentUser);
+        when(taskCommentRepository.save(any(TaskComment.class))).thenAnswer(invocation -> {
+            TaskComment comment = invocation.getArgument(0);
+            comment.setId(100L);
+            return comment;
+        });
+
+        TaskCommentResponse response = taskService.addComment(10L, request);
+
+        assertEquals(100L, response.id());
+        assertEquals("Need to clarify acceptance criteria", response.text());
+        assertEquals("alice", response.author());
+        assertNotNull(response.createdAt());
+    }
+
+    @Test
+    void shouldReturnCommentsForTask() {
+        Task task = new Task();
+        task.setId(10L);
+        task.setTitle("Finish backend");
+
+        AppUser alice = new AppUser();
+        alice.setId(1L);
+        alice.setUsername("alice");
+
+        AppUser bob = new AppUser();
+        bob.setId(2L);
+        bob.setUsername("bob");
+
+        TaskComment firstComment = new TaskComment();
+        firstComment.setId(100L);
+        firstComment.setText("Need to clarify acceptance criteria");
+        firstComment.setTask(task);
+        firstComment.setAuthor(alice);
+        firstComment.setCreatedAt(LocalDateTime.of(2025, 3, 25, 10, 0));
+
+        TaskComment secondComment = new TaskComment();
+        secondComment.setId(101L);
+        secondComment.setText("I will handle this tomorrow");
+        secondComment.setTask(task);
+        secondComment.setAuthor(bob);
+        secondComment.setCreatedAt(LocalDateTime.of(2025, 3, 25, 12, 0));
+
+        when(taskRepository.findById(10L)).thenReturn(Optional.of(task));
+        when(taskCommentRepository.findAllByTaskIdOrderByCreatedByAsc(10L))
+                .thenReturn(List.of(firstComment, secondComment));
+
     }
 
 }

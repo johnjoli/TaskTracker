@@ -1,4 +1,4 @@
-package com.tasktracker.task.domain;
+package com.tasktracker.task.entity;
 
 import com.tasktracker.auth.domain.AppUser;
 import jakarta.persistence.Column;

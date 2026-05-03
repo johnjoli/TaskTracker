@@ -5,12 +5,12 @@ import com.tasktracker.auth.repository.UserRepository;
 import com.tasktracker.auth.service.CurrentUserService;
 import com.tasktracker.common.api.PageResponse;
 import com.tasktracker.common.exception.ResourceNotFoundException;
-import com.tasktracker.task.api.TaskPatchRequest;
-import com.tasktracker.task.api.TaskRequest;
-import com.tasktracker.task.api.TaskResponse;
-import com.tasktracker.task.domain.Task;
-import com.tasktracker.task.domain.TaskPriority;
-import com.tasktracker.task.domain.TaskStatus;
+import com.tasktracker.task.api.*;
+import com.tasktracker.task.entity.Task;
+import com.tasktracker.task.entity.TaskComment;
+import com.tasktracker.task.entity.TaskPriority;
+import com.tasktracker.task.entity.TaskStatus;
+import com.tasktracker.task.repository.TaskCommentRepository;
 import com.tasktracker.task.repository.TaskRepository;
 import com.tasktracker.task.repository.TaskSpecifications;
 import org.springframework.security.access.AccessDeniedException;
@@ -20,6 +20,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Service
 @Transactional(readOnly = true)
@@ -28,15 +29,17 @@ public class TaskService {
     private final TaskRepository taskRepository;
     private final UserRepository userRepository;
     private final CurrentUserService currentUserService;
+    private final TaskCommentRepository taskCommentRepository;
 
     public TaskService(
             TaskRepository taskRepository,
             UserRepository userRepository,
-            CurrentUserService currentUserService
+            CurrentUserService currentUserService, TaskCommentRepository taskCommentRepository
     ) {
         this.taskRepository = taskRepository;
         this.userRepository = userRepository;
         this.currentUserService = currentUserService;
+        this.taskCommentRepository = taskCommentRepository;
     }
 
     @Transactional
@@ -156,4 +159,48 @@ public class TaskService {
         task.setStatus(TaskStatus.DONE);
         return TaskMapper.toResponse(taskRepository.save(task));
     }
+
+    @Transactional
+    public TaskResponse unassign(Long id) {
+        Task task = getTask(id);
+        verifyCanModify(task);
+        task.setAssignee(null);
+        return TaskMapper.toResponse(taskRepository.save(task));
+    }
+
+    @Transactional
+    public TaskCommentResponse addComment(Long taskId, TaskCommentRequest request) {
+        Task task = getTask(taskId);
+        AppUser currentUser = currentUserService.getCurrentUser();
+
+        TaskComment comment = new TaskComment();
+        comment.setText(request.text());
+        comment.setTask(task);
+        comment.setAuthor(currentUser);
+        comment.setCreatedAt(LocalDateTime.now());
+
+        TaskComment savedComment = taskCommentRepository.save(comment);
+
+        return new TaskCommentResponse(
+                savedComment.getId(),
+                savedComment.getText(),
+                savedComment.getAuthor().getUsername(),
+                savedComment.getCreatedAt()
+        );
+    }
+
+    public List<TaskCommentResponse> findComments(Long taskId) {
+        getTask(taskId);
+
+        return taskCommentRepository.findAllByTaskIdOrderByCreatedByAsc(taskId).stream()
+                .map(comment -> new TaskCommentResponse(
+                        comment.getId(),
+                        comment.getText(),
+                        comment.getAuthor().getUsername(),
+                        comment.getCreatedAt()
+                ))
+                .toList();
+    }
+
+
 }

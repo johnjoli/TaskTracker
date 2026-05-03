@@ -1,8 +1,8 @@
 package com.tasktracker.task.api;
 
 import com.tasktracker.common.api.PageResponse;
-import com.tasktracker.task.domain.TaskPriority;
-import com.tasktracker.task.domain.TaskStatus;
+import com.tasktracker.task.entity.TaskPriority;
+import com.tasktracker.task.entity.TaskStatus;
 import com.tasktracker.task.service.TaskService;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Pageable;
@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/tasks")
@@ -47,6 +48,18 @@ public class TaskController {
     @PostMapping("/{id}/assign-to-me")
     public TaskResponse assignToMe(@PathVariable Long id) {
         return taskService.assignToMe(id);
+    }
+
+    @PostMapping("/{id}/comments")
+    @ResponseStatus(HttpStatus.CREATED)
+    public TaskCommentResponse addComment(@PathVariable Long id,
+                                          @Valid @RequestBody TaskCommentRequest request) {
+        return taskService.addComment(id, request);
+    }
+
+    @PostMapping("/{id}/unassign")
+    public TaskResponse unassign(@PathVariable Long id) {
+        return taskService.unassign(id);
     }
 
     @GetMapping
@@ -105,5 +118,10 @@ public class TaskController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@PathVariable Long id) {
         taskService.delete(id);
+    }
+
+    @GetMapping("/{id}/comments")
+    public List<TaskCommentResponse> findComments(@PathVariable Long id) {
+        return taskService.findComments(id);
     }
 }

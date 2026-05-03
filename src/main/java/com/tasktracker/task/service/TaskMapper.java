@@ -4,7 +4,7 @@ import com.tasktracker.auth.domain.AppUser;
 import com.tasktracker.task.api.TaskRequest;
 import com.tasktracker.task.api.TaskResponse;
 import com.tasktracker.task.api.TaskPatchRequest;
-import com.tasktracker.task.domain.Task;
+import com.tasktracker.task.entity.Task;
 
 final class TaskMapper {
 

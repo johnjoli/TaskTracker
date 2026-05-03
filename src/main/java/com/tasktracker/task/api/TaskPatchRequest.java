@@ -1,7 +1,7 @@
 package com.tasktracker.task.api;
 
-import com.tasktracker.task.domain.TaskPriority;
-import com.tasktracker.task.domain.TaskStatus;
+import com.tasktracker.task.entity.TaskPriority;
+import com.tasktracker.task.entity.TaskStatus;
 import jakarta.validation.constraints.Size;
 
 import java.time.LocalDateTime;

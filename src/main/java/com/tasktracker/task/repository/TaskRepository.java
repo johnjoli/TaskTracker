@@ -1,6 +1,6 @@
 package com.tasktracker.task.repository;
 
-import com.tasktracker.task.domain.Task;
+import com.tasktracker.task.entity.Task;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 

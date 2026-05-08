@@ -3,8 +3,7 @@ package com.tasktracker.task.service;
 import com.tasktracker.auth.repository.UserRepository;
 import com.tasktracker.auth.service.CurrentUserService;
 import com.tasktracker.common.api.PageResponse;
-import com.tasktracker.task.api.TaskCommentRequest;
-import com.tasktracker.task.api.TaskCommentResponse;
+import com.tasktracker.task.api.*;
 import com.tasktracker.task.entity.Task;
 import com.tasktracker.task.entity.TaskComment;
 import com.tasktracker.task.entity.TaskPriority;
@@ -20,8 +19,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import com.tasktracker.common.exception.ResourceNotFoundException;
 
 import com.tasktracker.auth.domain.AppUser;
-import com.tasktracker.task.api.TaskRequest;
-import com.tasktracker.task.api.TaskResponse;
 import org.springframework.data.jpa.domain.Specification;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -322,6 +319,108 @@ public class TaskServiceTest {
         when(taskCommentRepository.findAllByTaskIdOrderByCreatedByAsc(10L))
                 .thenReturn(List.of(firstComment, secondComment));
 
+        List<TaskCommentResponse> responses = taskService.findComments(10L);
+
+        assertEquals(2, responses.size());
+
+        assertEquals(100L, responses.get(0).id());
+        assertEquals("Need to clarify acceptance criteria", responses.get(0).text());
+        assertEquals("alice", responses.get(0).author());
+
+        assertEquals(101L, responses.get(1).id());
+        assertEquals("I will handle this tomorrow", responses.get(1).text());
+        assertEquals("bob", responses.get(1).author());
     }
 
+    @Test
+    void shouldEditCommentWhenCurrentUserIsAuthor() {
+        AppUser currentUser = new AppUser();
+        currentUser.setId(1L);
+        currentUser.setUsername("alice");
+
+        Task task = new Task();
+        task.setId(10L);
+        task.setTitle("Finish backend");
+
+        TaskComment comment = new TaskComment();
+        comment.setId(100L);
+        comment.setText("Old text");
+        comment.setTask(task);
+        comment.setAuthor(currentUser);
+        comment.setCreatedAt(LocalDateTime.of(2025, 3, 25, 10, 0));
+
+        TaskCommentPatchRequest request = new TaskCommentPatchRequest("Updated text");
+
+        when(taskRepository.findById(10L)).thenReturn(Optional.of(task));
+        when(taskCommentRepository.findById(100L)).thenReturn(Optional.of(comment));
+        when(currentUserService.getCurrentUser()).thenReturn(currentUser);
+        when(taskCommentRepository.save(any(TaskComment.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        TaskCommentResponse response = taskService.editComment(10L, 100L, request);
+
+        assertEquals(100l, response.id());
+        assertEquals("Updated text", response.text());
+        assertEquals("alice", response.author());
+        assertEquals(LocalDateTime.of(2025, 3, 25, 10, 0), response.createdAt());
+    }
+
+    @Test
+    void shouldThrowWhenUserEditsAnotherUsersCommentWithoutAdminRole() {
+        AppUser author = new AppUser();
+        author.setId(1L);
+        author.setUsername("alice");
+
+        AppUser currentUser = new AppUser();
+        currentUser.setId(2L);
+        currentUser.setUsername("bob");
+
+        Task task = new Task();
+        task.setId(10L);
+        task.setTitle("Finish backend");
+
+        TaskComment comment = new TaskComment();
+        comment.setId(100L);
+        comment.setText("Old text");
+        comment.setTask(task);
+        comment.setAuthor(author);
+        comment.setCreatedAt(LocalDateTime.of(2025, 3, 25, 10, 0));
+
+        TaskCommentPatchRequest request = new TaskCommentPatchRequest("Updated text");
+
+        when(taskRepository.findById(10L)).thenReturn(Optional.of(task));
+        when(taskCommentRepository.findById(100L)).thenReturn(Optional.of(comment));
+        when(currentUserService.getCurrentUser()).thenReturn(currentUser);
+        when(currentUserService.isAdmin()).thenReturn(false);
+
+        assertThrows(
+                AccessDeniedException.class,
+                () -> taskService.editComment(10L, 100L, request)
+        );
+    }
+
+    @Test
+    void shouldDeleteCommentWhenCurrentUserIsAuthor() {
+        AppUser currentUser = new AppUser();
+        currentUser.setId(1L);
+        currentUser.setUsername("alice");
+
+        Task task = new Task();
+        task.setId(10L);
+        task.setTitle("Finish backend");
+
+        TaskComment comment = new TaskComment();
+        comment.setId(100L);
+        comment.setText("Old comment");
+        comment.setTask(task);
+        comment.setAuthor(currentUser);
+        comment.setCreatedAt(LocalDateTime.of(2025, 3, 25, 10, 0));
+
+        when(taskRepository.findById(10L)).thenReturn(Optional.of(task));
+        when(taskCommentRepository.findById(100L)).thenReturn(Optional.of(comment));
+        when(currentUserService.getCurrentUser()).thenReturn(currentUser);
+
+        taskService.deleteComment(10L, 100L);
+
+        verify(taskCommentRepository).delete(comment);
+    }
 }

@@ -114,10 +114,25 @@ public class TaskController {
         return taskService.patch(id, request);
     }
 
+    @PatchMapping("/{taskId}/comments/{commnetId}")
+    public TaskCommentResponse editComment(
+            @PathVariable Long taskId,
+            @PathVariable Long commentId,
+            @Valid @RequestBody TaskCommentPatchRequest request
+    ) {
+        return taskService.editComment(taskId, commentId, request);
+    }
+
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@PathVariable Long id) {
         taskService.delete(id);
+    }
+
+    @DeleteMapping("/{taskId}/comments/{commentId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteComment(@PathVariable Long taskId, @PathVariable Long commentId) {
+        taskService.deleteComment(taskId, commentId);
     }
 
     @GetMapping("/{id}/comments")

@@ -202,5 +202,62 @@ public class TaskService {
                 .toList();
     }
 
+    @Transactional
+    public TaskCommentResponse editComment(Long taskId, Long commentId, TaskCommentPatchRequest request) {
+        getTask(taskId);
 
+        TaskComment comment = taskCommentRepository.findById(commentId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Comment with id=%d was not found".formatted(commentId)
+                ));
+
+        if (!comment.getTask().getId().equals(taskId)) {
+            throw new ResourceNotFoundException(
+            "Comment with id =%d does not belong to task with if=%d".formatted(commentId, taskId)
+            );
+        }
+
+        AppUser currentUser = currentUserService.getCurrentUser();
+        boolean isAuthor = comment.getAuthor() != null && comment.getAuthor().getId().equals(currentUser.getId());
+
+        if (!isAuthor && !currentUserService.isAdmin()) {
+            throw new AccessDeniedException("{Only the comment author or admin can edit comment");
+        }
+
+        comment.setText(request.text());
+
+        TaskComment savedComment = taskCommentRepository.save(comment);
+
+        return new TaskCommentResponse(
+                savedComment.getId(),
+                savedComment.getText(),
+                savedComment.getAuthor().getUsername(),
+                savedComment.getCreatedAt()
+        );
+    }
+
+    @Transactional
+    public void deleteComment(Long taskId, Long commentId) {
+        getTask(taskId);
+
+        TaskComment comment = taskCommentRepository.findById(commentId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Comment with id=%d was not found".formatted(commentId)
+                ));
+
+        if(!comment.getTask().getId().equals(taskId)) {
+            throw new ResourceNotFoundException(
+                    "Comment with id=%d does not belong to task with id=%d".formatted(commentId, taskId)
+            );
+        }
+
+        AppUser currentUser = currentUserService.getCurrentUser();
+        boolean isAuthor = comment.getAuthor() != null && comment.getAuthor().getId().equals(currentUser.getId());
+
+        if (!isAuthor && !currentUserService.isAdmin()) {
+            throw new AccessDeniedException("Only the comment author or admin can delete this comment");
+        }
+
+        taskCommentRepository.delete(comment);
+    }
 }

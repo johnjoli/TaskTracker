@@ -13,6 +13,8 @@ import com.tasktracker.task.entity.TaskStatus;
 import com.tasktracker.task.repository.TaskCommentRepository;
 import com.tasktracker.task.repository.TaskRepository;
 import com.tasktracker.task.repository.TaskSpecifications;
+import org.springframework.data.jpa.repository.EntityGraph;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -53,6 +55,7 @@ public class TaskService {
 
     }
 
+    @EntityGraph(attributePaths = {"comments", "assignee"})
     public PageResponse<TaskResponse> findAll(
             TaskStatus status,
             TaskPriority priority,
@@ -192,7 +195,7 @@ public class TaskService {
     public List<TaskCommentResponse> findComments(Long taskId) {
         getTask(taskId);
 
-        return taskCommentRepository.findAllByTaskIdOrderByCreatedByAsc(taskId).stream()
+        return taskCommentRepository.findAllByTaskIdOrderByCreatedAtAsc(taskId).stream()
                 .map(comment -> new TaskCommentResponse(
                         comment.getId(),
                         comment.getText(),

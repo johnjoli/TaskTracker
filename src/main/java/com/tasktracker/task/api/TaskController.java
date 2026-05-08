@@ -114,7 +114,7 @@ public class TaskController {
         return taskService.patch(id, request);
     }
 
-    @PatchMapping("/{taskId}/comments/{commnetId}")
+    @PatchMapping("/{taskId}/comments/{commentId}")
     public TaskCommentResponse editComment(
             @PathVariable Long taskId,
             @PathVariable Long commentId,
